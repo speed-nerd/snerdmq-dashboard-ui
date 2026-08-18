@@ -7,6 +7,8 @@ export class SDKService {
     this.ws = null;
     this.isPolling = false;
     this.pollInterval = null;
+    this.progressPollInterval = null;
+    this.lastProgressTs = Date.now() / 1000;
 
     this.connect();
   }
@@ -85,6 +87,35 @@ export class SDKService {
           this.fetchData();
       }, interval);
       this.fetchData();
+
+      // For SDKs without WebSocket support (e.g. PHP, Ruby), progress events
+      // are persisted to a file and exposed via /api/progress. Poll it when the
+      // WS connection is not delivering events.
+      if (!this.progressPollInterval) {
+          this.progressPollInterval = setInterval(() => this.pollProgress(), 2000);
+      }
+  }
+
+  async pollProgress() {
+      if (this.ws && this.ws.readyState === WebSocket.OPEN) return;
+      const baseUrl = process.env.NODE_ENV === 'development' ? 'http://127.0.0.1:8080' : '';
+      try {
+          const res = await fetch(`${baseUrl}/api/progress`);
+          if (!res.ok) return;
+          const events = await res.json();
+          if (!Array.isArray(events)) return;
+          events.forEach(ev => {
+              if (ev.ts > this.lastProgressTs) {
+                  this.lastProgressTs = ev.ts;
+                  this.emit('progress', {
+                      task_id: ev.task_id,
+                      data: typeof ev.data === 'string' ? ev.data : JSON.stringify(ev.data)
+                  });
+              }
+          });
+      } catch (err) {
+          // Endpoint may not exist on some SDKs; ignore silently
+      }
   }
 
   async fetchData() {

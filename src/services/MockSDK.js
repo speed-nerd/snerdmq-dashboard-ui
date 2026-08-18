@@ -6,11 +6,11 @@ export class MockSDKService {
     futureTime.setSeconds(futureTime.getSeconds() + 120);
 
     this.activeTasks = [
-      { id: 'task-8fa2', type: 'ai_gen', status: 'active', progress: 45, retryCount: 0, maxRetries: 3 },
-      { id: 'task-b91c', type: 'email_send', status: 'queued', progress: 0, retryCount: 0, maxRetries: 5 },
-      { id: 'task-11x9', type: 'image_process', status: 'completed', progress: 100, retryCount: 0, maxRetries: 3 },
-      { id: 'task-77f1', type: 'db_sync', status: 'failed', progress: 14, retryCount: 1, maxRetries: 3, retryAfterTime: futureTime.toISOString() },
-      { id: 'task-9x88', type: 'payment', status: 'failed', progress: 50, retryCount: 3, maxRetries: 3 },
+      { id: 'task-8fa2', type: 'ai_gen', status: 'active', progress: 45, retryCount: 0, maxRetries: 3, cronExpression: '*/5 * * * *' },
+      { id: 'task-b91c', type: 'email_send', status: 'queued', progress: 0, retryCount: 0, maxRetries: 5, webhookUrl: 'https://hooks.example.com/notify' },
+      { id: 'task-11x9', type: 'image_process', status: 'completed', progress: 100, retryCount: 0, maxRetries: 3, maxExecutionSeconds: 300 },
+      { id: 'task-77f1', type: 'db_sync', status: 'failed', progress: 14, retryCount: 1, maxRetries: 3, retryAfterTime: futureTime.toISOString(), cronExpression: '0 */2 * * *' },
+      { id: 'task-9x88', type: 'payment', status: 'failed', progress: 50, retryCount: 3, maxRetries: 3, webhookUrl: 'https://hooks.example.com/payment', maxExecutionSeconds: 60, cronExpression: '0 * * * *' },
     ];
     this.stats = {
       enqueued: 1204,

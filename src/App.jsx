@@ -1,8 +1,7 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import logo from './assets/logo.png';
-//, { useState, useEffect, useRef } from 'react'
-import { Activity, Database, Terminal, Cpu, Sun, Moon, Filter } from 'lucide-react'
+import { Activity, Database, Terminal, Cpu, Sun, Moon, Filter, Clock, Globe, Timer } from 'lucide-react'
 import { SDKService } from './services/SDKService'
 import './index.css'
 
@@ -14,6 +13,7 @@ function App() {
   const [logs, setLogs] = useState([]);
   const [theme, setTheme] = useState('dark');
   const [filter, setFilter] = useState('all'); // all, active, queued, completed, failed
+  const [featureFilter, setFeatureFilter] = useState('all'); // all, cron, webhook, timeout
   const consoleRef = useRef(null);
 
   useEffect(() => {
@@ -41,7 +41,14 @@ function App() {
     setTheme(t => t === 'light' ? 'dark' : 'light');
   };
 
-  const filteredTasks = tasks.filter(t => filter === 'all' || t.status === filter);
+  const filteredTasks = tasks.filter(t => {
+    const statusMatch = filter === 'all' || t.status === filter;
+    const featureMatch = featureFilter === 'all'
+      || (featureFilter === 'cron'    && t.cronExpression)
+      || (featureFilter === 'webhook' && t.webhookUrl)
+      || (featureFilter === 'timeout' && t.maxExecutionSeconds);
+    return statusMatch && featureMatch;
+  });
 
   return (
     <div className="dashboard-container">
@@ -87,6 +94,18 @@ function App() {
                   <div className="stat-value" style={{color: 'var(--success)'}}>{tasks.filter(t => t.status === 'active').length}</div>
                   <div className="stat-label">Active Workers</div>
                 </div>
+                <div className="stat-card">
+                  <div className="stat-value" style={{color: '#a78bfa'}}>{tasks.filter(t => t.cronExpression).length}</div>
+                  <div className="stat-label">Cron Jobs</div>
+                </div>
+                <div className="stat-card">
+                  <div className="stat-value" style={{color: '#22d3ee'}}>{tasks.filter(t => t.webhookUrl).length}</div>
+                  <div className="stat-label">Webhook Jobs</div>
+                </div>
+                <div className="stat-card">
+                  <div className="stat-value" style={{color: '#fbbf24'}}>{tasks.filter(t => t.maxExecutionSeconds).length}</div>
+                  <div className="stat-label">Hard Timeout</div>
+                </div>
               </div>
             </div>
           </div>
@@ -106,12 +125,26 @@ function App() {
               </select>
             </div>
             <div className="panel-content">
+              <div className="feature-chips">
+                <button className={`chip ${featureFilter === 'all' ? 'chip-active' : ''}`} onClick={() => setFeatureFilter('all')}>All</button>
+                <button className={`chip ${featureFilter === 'cron' ? 'chip-active' : ''}`} onClick={() => setFeatureFilter('cron')}>
+                  <Clock size={12} /> Cron
+                </button>
+                <button className={`chip ${featureFilter === 'webhook' ? 'chip-active' : ''}`} onClick={() => setFeatureFilter('webhook')}>
+                  <Globe size={12} /> Webhook
+                </button>
+                <button className={`chip ${featureFilter === 'timeout' ? 'chip-active' : ''}`} onClick={() => setFeatureFilter('timeout')}>
+                  <Timer size={12} /> Hard Timeout
+                </button>
+              </div>
+              <div className="table-wrapper">
               <table>
                 <thead>
                   <tr>
                     <th>Task ID</th>
                     <th>Type</th>
                     <th>Status</th>
+                    <th>Config</th>
                     <th>Progress</th>
                   </tr>
                 </thead>
@@ -138,23 +171,43 @@ function App() {
                         </div>
                       </td>
                       <td>
-                        <div style={{width: '100%', background: 'rgba(128,128,128,0.2)', height: '6px', borderRadius: '3px', overflow: 'hidden'}}>
-                          <div style={{
-                            width: `${t.progress}%`, 
-                            background: (t.status === 'failed' || t.status === 'dead_letter') ? 'var(--error)' : t.status === 'completed' ? 'var(--success)' : 'var(--accent)', 
-                            height: '100%', transition: 'width 0.3s ease'
-                          }}></div>
+                        <div style={{display: 'flex', gap: '0.25rem', flexWrap: 'wrap'}}>
+                          {t.cronExpression && <span className="badge badge-cron"><Clock size={10} /> {t.cronExpression}</span>}
+                          {t.webhookUrl && <span className="badge badge-webhook"><Globe size={10} /> webhook</span>}
+                          {t.maxExecutionSeconds && <span className="badge badge-timeout"><Timer size={10} /> {t.maxExecutionSeconds}s</span>}
+                          {!t.cronExpression && !t.webhookUrl && !t.maxExecutionSeconds && <span style={{color: 'var(--text-secondary)', fontSize: '0.75rem'}}>—</span>}
                         </div>
+                      </td>
+                      <td>
+                        {(() => {
+                          const isDone = t.status === 'completed' || t.status === 'failed' || t.status === 'dead_letter';
+                          const isActive = t.status === 'active';
+                          const barColor = (t.status === 'failed' || t.status === 'dead_letter') ? 'var(--error)' : t.status === 'completed' ? 'var(--success)' : 'var(--accent)';
+                          return (
+                            <div style={{width: '100%', background: 'rgba(128,128,128,0.2)', height: '6px', borderRadius: '3px', overflow: 'hidden'}}>
+                              {isActive ? (
+                                <div className="progress-indeterminate" style={{background: barColor, height: '100%'}}></div>
+                              ) : (
+                                <div style={{
+                                  width: isDone ? '100%' : `${t.progress || 0}%`,
+                                  background: barColor,
+                                  height: '100%', transition: 'width 0.3s ease'
+                                }}></div>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </td>
                     </tr>
                   ))}
                   {filteredTasks.length === 0 && (
                     <tr>
-                      <td colSpan="4" style={{textAlign: 'center', color: 'var(--text-secondary)', padding: '2rem 0'}}>No jobs match this filter</td>
+                      <td colSpan="5" style={{textAlign: 'center', color: 'var(--text-secondary)', padding: '2rem 0'}}>No jobs match this filter</td>
                     </tr>
                   )}
                 </tbody>
               </table>
+              </div>
             </div>
           </div>
         </div>
