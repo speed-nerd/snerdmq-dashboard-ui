@@ -1,4 +1,10 @@
-# React + Vite
+# SnerdMQ Dashboard UI
+
+The built-in React dashboard for SnerdMQ — real-time queue stats, job status table, and live progress stream.
+
+[![Docs](https://img.shields.io/badge/docs-speed--nerd.github.io-blue)](https://speed-nerd.github.io/docs/)
+
+## React + Vite
 
 This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
 
